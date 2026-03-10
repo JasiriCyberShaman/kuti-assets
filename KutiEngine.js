@@ -112,10 +112,42 @@ export function initKuti(containerId, assetBase) {
             scene.add(model);
             
             model.traverse((child) => {
-                if (child.isMesh && child.name === "KutiMesh") {
-                    bodyMesh = child;
-                    bodyMaterial = child.material;
-                    window.bodyMesh = child; 
+                // Catch any mesh that contains "Kuti" in case Blender split the mesh into pieces
+                if (child.isMesh && child.name.includes("Kuti")) {
+                    
+                    // 1. Identify the specific piece that has the mouth/eye morph targets
+                    if (child.morphTargetDictionary) {
+                        bodyMesh = child;
+                        window.bodyMesh = child; // For debugging
+                    }
+
+                    // 2. Handle the Multi-Material Array
+                    if (Array.isArray(child.material)) {
+                        child.material.forEach((mat) => {
+                            // Fix transparent PNG rendering bugs
+                            mat.transparent = true;
+                            mat.alphaTest = 0.05; 
+                            mat.depthWrite = true;
+
+                            // We need to isolate the "Face/Head" material so your 
+                            // setTexture() function knows which one to swap emotions on.
+                            // (Adjust "head" if your material is named differently in Blender)
+                            if (mat.name.toLowerCase().includes("head") || mat.name.toLowerCase().includes("face")) {
+                                bodyMaterial = mat;
+                            }
+                        });
+                        
+                        // Fallback if we couldn't find the head by name
+                        if (!bodyMaterial) bodyMaterial = child.material[0];
+
+                    } else {
+                        // Handle standard single materials
+                        child.material.transparent = true;
+                        child.material.alphaTest = 0.05;
+                        child.material.depthWrite = true;
+                        
+                        if (!bodyMaterial) bodyMaterial = child.material;
+                    }
                 }
             });
 
@@ -123,16 +155,14 @@ export function initKuti(containerId, assetBase) {
             gltf.animations.forEach(clip => actions[clip.name] = mixer.clipAction(clip));
             if (actions['DefaultFloat']) actions['DefaultFloat'].play();
             
-            // Remove the loading text now that Kuti is ready
             if (statusText) statusText.style.display = 'none';
             
             animate();
         },
-        // 2. ON PROGRESS (The Loading Bar)
+        // 2. ON PROGRESS
         (xhr) => {
             if (statusText) {
                 const percent = Math.round((xhr.loaded / xhr.total) * 100);
-                // If the server doesn't send total size, just show raw bytes downloaded
                 if (xhr.total > 0) {
                     statusText.innerText = `// DOWNLOADING_CHASSIS: ${percent}%...`;
                 } else {
@@ -140,7 +170,7 @@ export function initKuti(containerId, assetBase) {
                 }
             }
         },
-        // 3. ON ERROR (The Diagnostic Catch)
+        // 3. ON ERROR
         (error) => {
             console.error("❌ [Kuti Engine Error]: Failed to load .glb model", error);
             if (statusText) {
