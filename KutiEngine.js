@@ -99,30 +99,56 @@ export function initKuti(containerId, assetBase) {
     dirLight.position.set(1, 2, 3);
     scene.add(dirLight);
 
-    // MODEL LOADING (Dynamically constructed path)
+  // MODEL LOADING (Dynamically constructed path)
     const MODEL_PATH = `${assetBase}/kuti_model/Kuti_Model.glb`;
     const loader = new GLTFLoader();
+    const statusText = document.getElementById("boot-status");
     
-    loader.load(MODEL_PATH, (gltf) => {
-        const model = gltf.scene;
-        scene.add(model);
-        
-        model.traverse((child) => {
-            if (child.isMesh && child.name === "KutiMesh") {
-                bodyMesh = child;
-                bodyMaterial = child.material;
-                window.bodyMesh = child; 
+    loader.load(
+        MODEL_PATH, 
+        // 1. ON LOAD SUCCESS
+        (gltf) => {
+            const model = gltf.scene;
+            scene.add(model);
+            
+            model.traverse((child) => {
+                if (child.isMesh && child.name === "KutiMesh") {
+                    bodyMesh = child;
+                    bodyMaterial = child.material;
+                    window.bodyMesh = child; 
+                }
+            });
+
+            mixer = new THREE.AnimationMixer(model);
+            gltf.animations.forEach(clip => actions[clip.name] = mixer.clipAction(clip));
+            if (actions['DefaultFloat']) actions['DefaultFloat'].play();
+            
+            // Remove the loading text now that Kuti is ready
+            if (statusText) statusText.style.display = 'none';
+            
+            animate();
+        },
+        // 2. ON PROGRESS (The Loading Bar)
+        (xhr) => {
+            if (statusText) {
+                const percent = Math.round((xhr.loaded / xhr.total) * 100);
+                // If the server doesn't send total size, just show raw bytes downloaded
+                if (xhr.total > 0) {
+                    statusText.innerText = `// DOWNLOADING_CHASSIS: ${percent}%...`;
+                } else {
+                    statusText.innerText = `// DOWNLOADING_CHASSIS: ${(xhr.loaded / 1024 / 1024).toFixed(2)} MB...`;
+                }
             }
-        });
-
-        mixer = new THREE.AnimationMixer(model);
-        gltf.animations.forEach(clip => actions[clip.name] = mixer.clipAction(clip));
-        
-        if (actions['DefaultFloat']) actions['DefaultFloat'].play();
-        
-        animate();
-    });
-
+        },
+        // 3. ON ERROR (The Diagnostic Catch)
+        (error) => {
+            console.error("❌ [Kuti Engine Error]: Failed to load .glb model", error);
+            if (statusText) {
+                statusText.style.color = "#ff4444";
+                statusText.innerHTML = `[MODEL_404_ERROR]<br><span style="font-size: 10px; color:#888;">Check browser console (F12) for exact file path failure.</span>`;
+            }
+        }
+    );
     function animate() {
         requestAnimationFrame(animate);
         const delta = clock.getDelta();
