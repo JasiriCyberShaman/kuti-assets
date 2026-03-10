@@ -152,8 +152,17 @@ export function initKuti(containerId, assetBase) {
             });
 
             mixer = new THREE.AnimationMixer(model);
-            gltf.animations.forEach(clip => actions[clip.name] = mixer.clipAction(clip));
-            if (actions['DefaultFloat']) actions['DefaultFloat'].play();
+            console.log("🎬 [Animation Diagnostics]: Available tracks from Blender:");
+            gltf.animations.forEach(clip => {
+                console.log(` - ${clip.name}`); // Prints exact names to your F12 console
+                actions[clip.name] = mixer.clipAction(clip);
+            });
+            // Start with Idle behavior (Updated to FloatAnim)
+            if (actions['FloatAnim']) {
+                actions['FloatAnim'].play();
+            } else {
+                console.warn("⚠️ [Warning]: 'FloatAnim' not found in .glb file.");
+            }
             
             if (statusText) statusText.style.display = 'none';
             
