@@ -1,0 +1,57 @@
+<div id="kuti-container" style="width: 100%; height: 500px; background: transparent; cursor: grab; display: flex; align-items: center; justify-content: center; overflow: hidden;">
+    <div id="boot-status" style="color: #bc13fe; font-family: 'Courier New', monospace; font-size: 14px; text-shadow: 0 0 5px #bc13fe;">
+        // INITIALIZING_KUTI_OS...
+    </div>
+</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+    // --- 1. CONFIGURATION ---
+    // Using the correct GitHub Pages CDN URL
+    const GITHUB_ASSETS_URL = 'https://jasiricybershaman.github.io/kuti-assets'; 
+    
+    // Using the WSS protocol for the neural link
+    const NGROK_BRIDGE_URL = 'wss://9da5-2600-8805-9390-2600-8515-ee8b-ea10-987c.ngrok-free.app'; 
+
+    async function bootKuti() {
+        const container = document.getElementById('kuti-container');
+        
+        try {
+            // 2. BROADCAST TO FRAMER (The Neural Handshake)
+            // This wakes up your SocketBridge.tsx so Framer can handle the audio/UI
+            console.log("📡 [Transmitting]: Sending Neural Link URL to Framer Overlay...");
+            window.parent.postMessage({ 
+                type: "CONNECT_TO_NGROK", 
+                url: NGROK_BRIDGE_URL 
+            }, "*");
+
+            // 3. IMPORT ENGINE FROM GITHUB CDN
+            const engineUrl = `${GITHUB_ASSETS_URL}/KutiEngine.js?v=${Date.now()}`;
+            const module = await import(engineUrl);
+            
+            // 4. INITIALIZE THREE.JS SCENE
+            // Notice: We removed the container.innerHTML = "" from here!
+            await module.initKuti('kuti-container', GITHUB_ASSETS_URL);
+
+            console.log(`✅ [Cyber Shaman]: Kuti Systems Online.`);
+
+        } catch (err) {
+            console.error("❌ [System Failure]:", err);
+            container.innerHTML = `
+                <div style="color: #ff4444; font-family: monospace; text-align: center;">
+                    [CRITICAL_BOOT_ERROR]<br>
+                    <span style="font-size: 10px; color: #888;">${err.message}</span>
+                </div>`;
+        }
+    }
+
+    bootKuti();
+</script>
