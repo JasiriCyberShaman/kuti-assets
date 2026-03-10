@@ -23,12 +23,12 @@ const animationLibrary = {
     "Thinking": "ThinkingFloat"
 };
 
-// Linear Interpolation (Lerp) States
+/// Linear Interpolation (Lerp) States - SYNCED TO UPPERCASE
 const visemeTargets = {
     "viseme_sil": 0, "viseme_PP": 0, "viseme_FF": 0, "viseme_TH": 0,
     "viseme_DD": 0, "viseme_kk": 0, "viseme_CH": 0, "viseme_SS": 0,
-    "viseme_nn": 0, "viseme_RR": 0, "viseme_aa": 0, "viseme_E": 0,
-    "viseme_I": 0, "viseme_O": 0, "viseme_U": 0, "viseme_AA": 0
+    "viseme_nn": 0, "viseme_RR": 0, "viseme_AA": 0, "viseme_E": 0,
+    "viseme_I": 0, "viseme_O": 0, "viseme_U": 0
 };
 
 const visemeMouthBlendShapes = {
@@ -235,12 +235,18 @@ export function initKuti(containerId, assetBase) {
                 break;
 
             case "SET_VISEMES":
+                // 1. Reset all targets to 0
                 Object.keys(visemeTargets).forEach(k => visemeTargets[k] = 0);
                 
                 if (visemes) {
                     Object.entries(visemes).forEach(([key, weight]) => {
-                        if (visemeTargets[key] !== undefined) {
+                        const dict = bodyMesh.morphTargetDictionary;
+                        
+                        // 2. CHECK: Does this name actually exist on the 3D model?
+                        if (dict && dict[key] !== undefined) {
                             visemeTargets[key] = weight;
+                        } else {
+                            console.warn(`⚠️ [Kuti Engine]: ShapeKey '${key}' not found on mesh. Available:`, Object.keys(dict || {}));
                         }
                     });
                 }
