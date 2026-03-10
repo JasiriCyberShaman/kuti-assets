@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
 let scene, camera, renderer, mixer, clock;
-let bodyMesh = null;
+let bodyMeshes = []; // ARRAY: Holds all shattered mesh pieces
 let bodyMaterial = null;
 let currentBaseAction = null;
 const actions = {};
@@ -111,51 +111,46 @@ export function initKuti(containerId, assetBase) {
             const model = gltf.scene;
             scene.add(model);
             
+            console.log("🔭 [System]: Scanning model for actuators...");
+
             model.traverse((child) => {
                 if (child.isMesh) {
                     
-                    console.log(`🔎 [Mesh Found]: Object Name: ${child.name} | Data Name: ${child.geometry.name}`);
-
-                    if (child.geometry.name === "KutiMeshData" || child.name === "KutiMesh") {
+                    // Catch any shattered piece of Kuti
+                    if (child.name.includes("Kuti") || (child.geometry && child.geometry.name.includes("Kuti"))) {
             
                         if (child.morphTargetDictionary) {
-                            console.log(`✅ [Target Locked]: ${child.geometry.name} Actuators Online.`);
-                            bodyMesh = child;
-                            window.bodyMesh = child; // Keep available for F12 testing
-
-                            // Print the keys to verify they are present in this specific block
-                            Object.keys(child.morphTargetDictionary).forEach(key => {
-                                console.log(`   - Actuator: ${key}`);
-                            });
+                            console.log(`✅ [Actuator Linked]: ${child.name} (Geometry: ${child.geometry.name})`);
+                            bodyMeshes.push(child); // Add to the broadcast array
+                            window.primaryMesh = child; // Keep one available for F12 console testing
                         }
-                    }
 
-                    // 2. Handle the Multi-Material Array
-                    if (Array.isArray(child.material)) {
-                        child.material.forEach((mat) => {
-                            // Fix transparent PNG rendering bugs
-                            mat.transparent = true;
-                            mat.alphaTest = 0.05; 
-                            mat.depthWrite = true;
+                        // 2. Handle the Multi-Material Array
+                        if (Array.isArray(child.material)) {
+                            child.material.forEach((mat) => {
+                                // Fix transparent PNG rendering bugs
+                                mat.transparent = true;
+                                mat.alphaTest = 0.05; 
+                                mat.depthWrite = true;
 
-                            // We need to isolate the "Face/Head" material so your 
-                            // setTexture() function knows which one to swap emotions on.
-                            // (Adjust "head" if your material is named differently in Blender)
-                            if (mat.name.toLowerCase().includes("head") || mat.name.toLowerCase().includes("face")) {
-                                bodyMaterial = mat;
-                            }
-                        });
-                        
-                        // Fallback if we couldn't find the head by name
-                        if (!bodyMaterial) bodyMaterial = child.material[0];
+                                // We need to isolate the "Face/Head" material so your 
+                                // setTexture() function knows which one to swap emotions on.
+                                if (mat.name.toLowerCase().includes("head") || mat.name.toLowerCase().includes("face")) {
+                                    bodyMaterial = mat;
+                                }
+                            });
+                            
+                            // Fallback if we couldn't find the head by name
+                            if (!bodyMaterial) bodyMaterial = child.material[0];
 
-                    } else {
-                        // Handle standard single materials
-                        child.material.transparent = true;
-                        child.material.alphaTest = 0.05;
-                        child.material.depthWrite = true;
-                        
-                        if (!bodyMaterial) bodyMaterial = child.material;
+                        } else {
+                            // Handle standard single materials
+                            child.material.transparent = true;
+                            child.material.alphaTest = 0.05;
+                            child.material.depthWrite = true;
+                            
+                            if (!bodyMaterial) bodyMaterial = child.material;
+                        }
                     }
                 }
             });
@@ -163,10 +158,11 @@ export function initKuti(containerId, assetBase) {
             mixer = new THREE.AnimationMixer(model);
             console.log("🎬 [Animation Diagnostics]: Available tracks from Blender:");
             gltf.animations.forEach(clip => {
-                console.log(` - ${clip.name}`); // Prints exact names to your F12 console
+                console.log(` - ${clip.name}`);
                 actions[clip.name] = mixer.clipAction(clip);
             });
-            // Start with Idle behavior (Updated to FloatAnim)
+            
+            // Start with Idle behavior
             if (actions['FloatAnim']) {
                 actions['FloatAnim'].play();
             } else {
@@ -197,22 +193,25 @@ export function initKuti(containerId, assetBase) {
             }
         }
     );
+
     function animate() {
         requestAnimationFrame(animate);
         const delta = clock.getDelta();
 
-        if (bodyMesh && bodyMesh.morphTargetDictionary) {
-            const dict = bodyMesh.morphTargetDictionary;
-            
-            Object.keys(visemeTargets).forEach(key => {
-                const idx = dict[key];
-                // Ensure the index exists AND the mesh has an influence array
-                if (idx !== undefined && bodyMesh.morphTargetInfluences) {
-                    visemeCurrent[key] += (visemeTargets[key] - visemeCurrent[key]) * mouthLerpRate;
-                    bodyMesh.morphTargetInfluences[idx] = visemeCurrent[key];
-                }
-            });
-        }
+        // Broadcast Lerp math to EVERY shattered mesh piece
+        bodyMeshes.forEach(mesh => {
+            if (mesh.morphTargetDictionary && mesh.morphTargetInfluences) {
+                const dict = mesh.morphTargetDictionary;
+                
+                Object.keys(visemeTargets).forEach(key => {
+                    const idx = dict[key];
+                    if (idx !== undefined) {
+                        visemeCurrent[key] += (visemeTargets[key] - visemeCurrent[key]) * mouthLerpRate;
+                        mesh.morphTargetInfluences[idx] = visemeCurrent[key];
+                    }
+                });
+            }
+        });
 
         if (mixer) mixer.update(delta);
         renderer.render(scene, camera);
@@ -228,8 +227,6 @@ export function initKuti(containerId, assetBase) {
         switch (type) {
             case "RESET_CAMERA":
                 camera.position.set(0, 1, 2);
-                // Removed the broken controls logic. If you add OrbitControls later, 
-                // you can re-implement this safely.
                 break;
 
             case "SET_ANIMATION":
@@ -248,15 +245,11 @@ export function initKuti(containerId, assetBase) {
                 // 1. Reset all targets to 0
                 Object.keys(visemeTargets).forEach(k => visemeTargets[k] = 0);
                 
+                // 2. Set the requested targets (The animate loop will apply them to all meshes)
                 if (visemes) {
                     Object.entries(visemes).forEach(([key, weight]) => {
-                        const dict = bodyMesh.morphTargetDictionary;
-                        
-                        // 2. CHECK: Does this name actually exist on the 3D model?
-                        if (dict && dict[key] !== undefined) {
+                        if (visemeTargets[key] !== undefined) {
                             visemeTargets[key] = weight;
-                        } else {
-                            console.warn(`⚠️ [Kuti Engine]: ShapeKey '${key}' not found on mesh. Available:`, Object.keys(dict || {}));
                         }
                     });
                 }
