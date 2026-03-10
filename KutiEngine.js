@@ -85,8 +85,8 @@ export function initKuti(containerId, assetBase) {
     // SCENE SETUP
     scene = new THREE.Scene();
     clock = new THREE.Clock();
-    camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.01, 100);
-    camera.position.set(0, 0.1, 0.5);
+    camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 100);
+    camera.position.set(0, 1, 0.5);
 
     renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setSize(container.clientWidth, container.clientHeight);
