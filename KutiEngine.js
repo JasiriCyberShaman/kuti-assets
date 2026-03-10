@@ -111,53 +111,70 @@ export function initKuti(containerId, assetBase) {
             const model = gltf.scene;
             scene.add(model);
             
-            console.log("🔭 [System]: Scanning model for actuators...");
-
             model.traverse((child) => {
                 if (child.isMesh) {
-                    console.log(`🔎 [Mesh Found]: ${child.name}`);
+                    
+                    console.log(`🔎 [Mesh Found]: Object Name: ${child.name} | Data Name: ${child.geometry.name}`);
 
-                    // Check if THIS specific mesh has the morph targets (mouth/eyes)
-                    if (child.morphTargetDictionary) {
-                        console.log(`👄 [ShapeKey Diagnostics]: Found Actuators on '${child.name}':`);
-                        
-                        // Assign this as our primary mouth-driver
-                        bodyMesh = child;
-                        window.bodyMesh = child; 
+                    if (child.geometry.name === "KutiMeshData" || child.name === "KutiMesh") {
+            
+                        if (child.morphTargetDictionary) {
+                            console.log(`✅ [Target Locked]: ${child.geometry.name} Actuators Online.`);
+                            bodyMesh = child;
+                            window.bodyMesh = child; // Keep available for F12 testing
 
-                        Object.keys(child.morphTargetDictionary).forEach(key => {
-                            console.log(` - ${key} (Index: ${child.morphTargetDictionary[key]})`);
-                        });
+                            // Print the keys to verify they are present in this specific block
+                            Object.keys(child.morphTargetDictionary).forEach(key => {
+                                console.log(`   - Actuator: ${key}`);
+                            });
+                        }
                     }
 
-                    // Material handling (unchanged)
+                    // 2. Handle the Multi-Material Array
                     if (Array.isArray(child.material)) {
                         child.material.forEach((mat) => {
+                            // Fix transparent PNG rendering bugs
                             mat.transparent = true;
                             mat.alphaTest = 0.05; 
                             mat.depthWrite = true;
-                            if (mat.name.toLowerCase().includes("head") || mat.name.toLowerCase().includes("face") || mat.name.toLowerCase().includes("body")) {
+
+                            // We need to isolate the "Face/Head" material so your 
+                            // setTexture() function knows which one to swap emotions on.
+                            // (Adjust "head" if your material is named differently in Blender)
+                            if (mat.name.toLowerCase().includes("head") || mat.name.toLowerCase().includes("face")) {
                                 bodyMaterial = mat;
                             }
                         });
+                        
+                        // Fallback if we couldn't find the head by name
                         if (!bodyMaterial) bodyMaterial = child.material[0];
+
                     } else {
+                        // Handle standard single materials
                         child.material.transparent = true;
                         child.material.alphaTest = 0.05;
                         child.material.depthWrite = true;
+                        
                         if (!bodyMaterial) bodyMaterial = child.material;
                     }
                 }
             });
 
-            // ... (rest of your mixer/animation logic) ...
             mixer = new THREE.AnimationMixer(model);
+            console.log("🎬 [Animation Diagnostics]: Available tracks from Blender:");
             gltf.animations.forEach(clip => {
+                console.log(` - ${clip.name}`); // Prints exact names to your F12 console
                 actions[clip.name] = mixer.clipAction(clip);
             });
+            // Start with Idle behavior (Updated to FloatAnim)
+            if (actions['FloatAnim']) {
+                actions['FloatAnim'].play();
+            } else {
+                console.warn("⚠️ [Warning]: 'FloatAnim' not found in .glb file.");
+            }
             
-            if (actions['FloatAnim']) actions['FloatAnim'].play();
             if (statusText) statusText.style.display = 'none';
+            
             animate();
         },
         // 2. ON PROGRESS
