@@ -52,6 +52,17 @@
                 </div>`;
         }
     }
+    window.addEventListener("message", (e) => {
+        // DIAGNOSTIC: See if ANY signal is crossing the bridge
+        console.log("📥 [Kuti Engine]: Received Signal Type:", e.data.type);
+        
+        const { type, animation, visemes, rate, isOverlay } = e.data;
+        if (!type) return;
+
+        switch (type) {
+            // ... (rest of your switch logic) ...
+        }
+    });
 
     bootKuti();
 </script>

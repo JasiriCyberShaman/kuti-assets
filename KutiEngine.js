@@ -207,7 +207,7 @@ export function initKuti(containerId, assetBase) {
         if (mixer) mixer.update(delta);
         renderer.render(scene, camera);
     }
-
+    
     /**
      * 3. THE MESSAGE BUS
      */
