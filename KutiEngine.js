@@ -107,18 +107,22 @@ export function initKuti(containerId, assetBase) {
     loader.load(
         MODEL_PATH, 
         // 1. ON LOAD SUCCESS
-        (gltf) => {
+       (gltf) => {
             const model = gltf.scene;
             scene.add(model);
             
             model.traverse((child) => {
-                // Catch any mesh that contains "Kuti" in case Blender split the mesh into pieces
                 if (child.isMesh && child.name.includes("Kuti")) {
                     
-                    // 1. Identify the specific piece that has the mouth/eye morph targets
                     if (child.morphTargetDictionary) {
                         bodyMesh = child;
-                        window.bodyMesh = child; // For debugging
+                        window.bodyMesh = child; 
+
+                        // 🔍 MORPH TARGET DIAGNOSTICS
+                        console.log("👄 [ShapeKey Diagnostics]: Actuators found on mesh:");
+                        Object.keys(child.morphTargetDictionary).forEach(key => {
+                            console.log(` - ${key} (Index: ${child.morphTargetDictionary[key]})`);
+                        });
                     }
 
                     // 2. Handle the Multi-Material Array
@@ -197,7 +201,8 @@ export function initKuti(containerId, assetBase) {
             
             Object.keys(visemeTargets).forEach(key => {
                 const idx = dict[key];
-                if (idx !== undefined) {
+                // Ensure the index exists AND the mesh has an influence array
+                if (idx !== undefined && bodyMesh.morphTargetInfluences) {
                     visemeCurrent[key] += (visemeTargets[key] - visemeCurrent[key]) * mouthLerpRate;
                     bodyMesh.morphTargetInfluences[idx] = visemeCurrent[key];
                 }
