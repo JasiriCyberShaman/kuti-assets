@@ -1,6 +1,6 @@
 <div id="kuti-container" style="width: 100%; height: 500px; background: transparent; cursor: grab; display: flex; align-items: center; justify-content: center; overflow: hidden;">
     <div id="boot-status" style="color: #bc13fe; font-family: 'Courier New', monospace; font-size: 14px; text-shadow: 0 0 5px #bc13fe;">
-        // INITIALIZING_KUTI_OS...
+        // INITIALIZING_DDAIMON_OS...
     </div>
 </div>
 
@@ -15,36 +15,46 @@
 
 <script type="module">
     // --- 1. CONFIGURATION ---
-    // Using the correct GitHub Pages CDN URL
+    
+    // The base URL for your 3D assets and engine scripts hosted on GitHub Pages
     const GITHUB_ASSETS_URL = 'https://jasiricybershaman.github.io/kuti-assets'; 
     
-    // Using the WSS protocol for the neural link
-    const NGROK_BRIDGE_URL = 'wss://9da5-2600-8805-9390-2600-8515-ee8b-ea10-987c.ngrok-free.app'; 
+    // Using the WSS (WebSocket Secure) protocol for the neural link via Cloudflare Tunnel.
+    // This URL should match the one provided by your Cloudflare Tunnel setup.
+    const CLOUDFLARE_BRIDGE_URL = 'wss://api.ddaimon.com';
 
+    /**
+     * BOOT SEQUENCE:
+     * Asynchronously loads the 3D Engine and establishes the initial connection to the parent window (Framer).
+     */
     async function bootKuti() {
         const container = document.getElementById('kuti-container');
         
         try {
-            // 2. BROADCAST TO FRAMER (The Neural Handshake)
-            // This wakes up your SocketBridge.tsx so Framer can handle the audio/UI
-            console.log("📡 [Transmitting]: Sending Neural Link URL to Framer Overlay...");
+            // --- 2. THE NEURAL HANDSHAKE (BROADCAST TO FRAMER) ---
+            // We use window.parent.postMessage because this HTML is likely embedded in an iframe.
+            // This wakes up your SocketBridge.tsx and tells it where to connect the WebSocket.
+            console.log(">>> [Transmitting]: Sending Neural Link URL to Framer Overlay...");
             window.parent.postMessage({ 
-                type: "CONNECT_TO_NGROK", 
-                url: NGROK_BRIDGE_URL 
+                type: "CONNECT_TO_CLOUDFLARE",
+                url: CLOUDFLARE_BRIDGE_URL 
             }, "*");
 
-            // 3. IMPORT ENGINE FROM GITHUB CDN
+            // --- 3. DYNAMIC ENGINE IMPORT ---
+            // We append a timestamp (?v=Date.now()) to bust the browser cache.
+            // This ensures that if you update KutiEngine.js on GitHub, users get the latest version immediately.
             const engineUrl = `${GITHUB_ASSETS_URL}/KutiEngine.js?v=${Date.now()}`;
             const module = await import(engineUrl);
             
-            // 4. INITIALIZE THREE.JS SCENE
-            // Notice: We removed the container.innerHTML = "" from here!
+            // --- 4. INITIALIZE THREE.JS SCENE ---
+            // Pass the container ID and asset path down to the KutiEngine
             await module.initKuti('kuti-container', GITHUB_ASSETS_URL);
 
-            console.log(`✅ [Cyber Shaman]: Kuti Systems Online.`);
+            console.log(`[Cyber Shaman]: Kuti Systems Online.`);
 
         } catch (err) {
-            console.error("❌ [System Failure]:", err);
+            // FATAL ERROR HANDLING
+            console.error("XXX [System Failure]:", err);
             container.innerHTML = `
                 <div style="color: #ff4444; font-family: monospace; text-align: center;">
                     [CRITICAL_BOOT_ERROR]<br>
@@ -52,17 +62,66 @@
                 </div>`;
         }
     }
+
+    /**
+     * UI & DOM EVENT LISTENER
+     * While KutiEngine.js listens for 3D-specific commands (animations, visemes), 
+     * this listener acts as the DOM/UI layer interceptor.
+     */
     window.addEventListener("message", (e) => {
-        // DIAGNOSTIC: See if ANY signal is crossing the bridge
-        console.log("📥 [Kuti Engine]: Received Signal Type:", e.data.type);
+        // Prevent processing messages that don't fit our protocol
+        if (!e.data || !e.data.type) return;
+
+        // DIAGNOSTIC: Track signals crossing the bridge
+        console.log("![Kuti Engine UI]: Received Signal Type:", e.data.type);
         
+        // Destructure the payload sent from Framer / SocketBridge
         const { type, animation, visemes, rate, isOverlay } = e.data;
-        if (!type) return;
 
         switch (type) {
-            // ... (rest of your switch logic) ...
+            // 1. ENGINE PASS-THROUGHS
+            // These are handled primarily by KutiEngine.js, but we can log them 
+            // here to confirm the index.html boundary is receiving them properly.
+            case "SET_ANIMATION":
+                console.log(`[DOM Sync]: Kuti transitioning to -> ${animation}`);
+                break;
+                
+            case "SET_VISEMES":
+                // Visemes fire rapidly (often 60 times a second during speech). 
+                // Keep this empty or commented out to prevent console flooding.
+                // console.log(`[DOM Sync]: Processing Lip-sync targets.`); 
+                break;
+
+            case "RESET_CAMERA":
+                console.log(`[DOM Sync]: Camera tracking reset triggered.`);
+                break;
+
+            // 2. DOM / UI SPECIFIC COMMANDS
+            // Handle things that affect the HTML container itself, rather than the 3D scene.
+            case "TOGGLE_OVERLAY":
+                // If Framer tells us this is an overlay, we might want to disable pointer events
+                // so the user can click *through* the 3D canvas to the website beneath it.
+                if (isOverlay !== undefined) {
+                    const container = document.getElementById('kuti-container');
+                    container.style.pointerEvents = isOverlay ? 'none' : 'auto';
+                    console.log(`[DOM Sync]: Overlay click-through mode set to: ${isOverlay}`);
+                }
+                break;
+
+            case "SHOW_BOOT_STATUS":
+                // In case you need to reactivate the loading text from Framer
+                const status = document.getElementById('boot-status');
+                if (status) status.style.display = 'block';
+                break;
+
+            default:
+                // Silently ignore unrecognized types to avoid clutter, 
+                // or log them if you are deep in debugging.
+                // console.warn(`[DOM Sync]: Unrecognized signal -> ${type}`);
+                break;
         }
     });
 
+    // Ignite the sequence
     bootKuti();
 </script>
