@@ -309,7 +309,7 @@ export function initKuti(containerId, assetBase) {
      * Acts as the API for driving the 3D engine state externally.
      */
     window.addEventListener("message", (e) => {
-        const { type, animation, visemes, rate, audioUrl } = e.data;
+        const { type, animation, visemes, rate } = e.data;
         if (!type) return;
 
         switch (type) {
@@ -350,33 +350,6 @@ export function initKuti(containerId, assetBase) {
                 
                 // Optionally update the speed of the transition
                 if (rate) mouthLerpRate = rate;
-                break;
-                
-            // 🚀 THE NEW AUDIO ENGINE: Grabs the URL from Python and plays it instantly
-            case "SPEECH_READY":
-                console.log("![Kuti Engine UI]: Received Signal Type: SPEECH_READY");
-                
-                if (audioUrl) {
-                    const voiceAudio = new Audio(audioUrl);
-                    
-                    voiceAudio.onplay = () => {
-                        console.log("🔊 [Kuti Audio]: Broadcasting voice response...");
-                        // If you want Kuti to automatically switch to a talking animation when speaking,
-                        // you can uncomment the lines below:
-                        /*
-                        if (actions["TalK1"] && currentBaseAction !== actions["TalK1"]) {
-                            actions["TalK1"].reset().fadeIn(0.5).play();
-                            if (currentBaseAction) currentBaseAction.fadeOut(0.5);
-                            currentBaseAction = actions["TalK1"];
-                        }
-                        */
-                    };
-                    
-                    // Catch block prevents the whole script from crashing if the browser blocks auto-play
-                    voiceAudio.play().catch(err => {
-                        console.error("🔇 [Audio Blocked]: The browser prevented playback. Make sure the user clicks something first!", err);
-                    });
-                }
                 break;
         }
     });
